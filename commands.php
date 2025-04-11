@@ -2,63 +2,59 @@
 header('Access-Control-Allow-Origin: *');
 header('Content-Type: text/plain');
 
-// Get the JSON input
 $data = json_decode(file_get_contents('php://input'), true);
 
-// Path to Git Bash executable (update the path if necessary)
-$gitBashPath = "C:\\Program Files\\Git\\bin\\bash.exe";
+// Detect OS and set shell path accordingly
+if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+    // Windows
+    $shell = "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c ";
+} else {
+    // Linux or Mac
+    $shell = "/bin/bash -c ";
+}
 
-// Check if a command is provided
 if (isset($data['command'])) {
-    $command = trim($data['command']); // Trim the command to remove extra spaces
+    $command = trim($data['command']);
 
-    // Handle 'clear' command explicitly
     if ($command === "clear") {
-        echo "CLEAR_SCREEN"; // Send a special response for the front end to handle
+        echo "CLEAR_SCREEN";
         exit;
     }
 
-    // Sanitize the command to prevent injection
     $escapedCommand = escapeshellarg($command);
-    $fullCommand = "\"$gitBashPath\" -c $escapedCommand"; // Construct the command
+    $fullCommand = $shell . $escapedCommand;
 
-    // Execute the command using Git Bash
-    $output = shell_exec($fullCommand);
-    $exitCode = null;
+    $output = '';
+    $errorOutput = '';
 
-    // To capture both output and exit code, use proc_open
     $descriptorSpec = [
-        1 => ['pipe', 'w'], // Standard output
-        2 => ['pipe', 'w'], // Standard error
+        1 => ['pipe', 'w'], // stdout
+        2 => ['pipe', 'w'], // stderr
     ];
+
     $process = proc_open($fullCommand, $descriptorSpec, $pipes);
 
     if (is_resource($process)) {
-        $output = stream_get_contents($pipes[1]); // Capture standard output
-        $errorOutput = stream_get_contents($pipes[2]); // Capture errors
+        $output = stream_get_contents($pipes[1]);
+        $errorOutput = stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
 
-        $exitCode = proc_close($process); // Get the exit code
-    }
+        $exitCode = proc_close($process);
 
-    // If there's output, return it
-    if ($output) {
-        echo "$output";
-    }
+        if (!empty($output)) echo $output;
+        if ($exitCode !== 0) {
+            echo "Error: $errorOutput";
+            echo "Command failed with exit code $exitCode.";
+        }
 
-    // If there's an error, return the error message and exit code
-    if ($exitCode !== 0) {
-        echo "Error: $errorOutput";
-        echo "Command failed with exit code $exitCode.";
-    }
-
-    // If no output or error is captured, show a generic message
-    if (!$output && !$errorOutput) {
-        echo "No output generated. Please check your command.";
+        if (empty($output) && empty($errorOutput)) {
+            echo "No output generated. Please check your command.";
+        }
+    } else {
+        echo "Failed to open process.";
     }
 } else {
-    // Display error message if no command is provided
     echo "Error: No command provided.";
 }
 ?>
