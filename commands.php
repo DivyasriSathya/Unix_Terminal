@@ -7,7 +7,7 @@ $data = json_decode(file_get_contents('php://input'), true);
 // Detect OS and set shell path accordingly
 if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
     // Windows
-    $shell = "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c ";
+    $shell = "/bin/bash -c ";
 } else {
     // Linux or Mac
     $shell = "/bin/bash -c ";
